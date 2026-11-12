@@ -16,9 +16,9 @@ function show(v){$('#dash').hidden=v!='dash';$('#ed').hidden=v!='ed';$('#dl').hi
 function dash(){const d=LS.get();$('#st').innerHTML=[['Documents opened',d.o||0],['Edits made',d.e||0],['Downloads',d.d||0]].map(([k,v])=>`<div class="card"><b>${v}</b><span>${k}</span></div>`).join('');
  $('#rc').innerHTML=(d.r||[]).map(r=>`<li><span>${esc(r.n)}</span><em>${r.p} pages · ${new Date(r.t).toLocaleDateString()}</em></li>`).join('')||'<li><em>No documents yet. Upload one to get started.</em></li>'}
 
-async function load(f){if(!f)return;try{bytes=new Uint8Array(await f.arrayBuffer());name=f.name.replace(/\.pdf$/i,'');ann={};hist=[];redo=[];cur=0;show('ed');await reload();
+async function load(f){if(!f)return;try{const im=/^image\//.test(f.type);bytes=im?await img2pdf(f):new Uint8Array(await f.arrayBuffer());name=f.name.replace(/\.[^.]+$/,'');ann={};hist=[];redo=[];cur=0;show('ed');await reload();{const w=vp.width/Z;Z=Math.max(.3,Math.min(1.3,($('#stage').clientWidth-32)/w));await draw()}if(im)ocrPage();
  const d=LS.get();d.o=(d.o||0)+1;d.r=[{n:f.name,p:doc.numPages,t:Date.now()},...(d.r||[])].slice(0,6);LS.set(d)}catch(e){show(doc?'ed':'dash');toast('Could not open this PDF. It may be damaged or password-protected.')}}
-async function reload(){doc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;tc={};if(cur>=doc.numPages)cur=doc.numPages-1;if(cur<0)cur=0;await draw();thumbs()}
+async function reload(){doc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;tc={};ocrd.clear();if(cur>=doc.numPages)cur=doc.numPages-1;if(cur<0)cur=0;await draw();thumbs()}
 async function draw(){if(ai)ai(0);const t=++tok,p=await doc.getPage(cur+1);if(rt){rt.cancel();try{await rt.promise}catch(e){}}if(t!=tok)return;
  vp=p.getViewport({scale:Z});const c=$('#pc');c.width=O.width=vp.width;c.height=O.height=vp.height;
  rt=p.render({canvasContext:c.getContext('2d'),viewport:vp});try{await rt.promise}catch(e){return}
@@ -74,7 +74,7 @@ O.onpointermove=e=>{if(!tmp)return;const q=pt(e);if(tmp.t=='r'){tmp.x=Math.min(s
 O.onpointerup=()=>{if(!tmp)return;const a=tmp;tmp=null;(a.t=='p'?a.p.length>1:a.w>2&&a.h>2)?add(a):paint()};
 O.onclick=async e=>{if(!doc)return;if(ai){ai(1);return}const[x,y]=pt(e);
  if(tool=='text')ask(x,y,'',v=>{const s=SZ();add({t:'x',x,y:y+s*.8,s,v,c:COL(),b:fmt.b,i:fmt.i,f:fmt.f})});
- else if(tool=='edit'){const it=(await items()).find(i=>x>=i.x-2&&x<=i.x+i.w+2&&y>=i.y-i.s&&y<=i.y+i.s*.3);if(!it)return toast('Click directly on existing text. Scanned pages have no text to edit.');
+ else if(tool=='edit'){const its=await items();if(!its.length&&!ocrd.has(cur))return ocrPage();const it=its.find(i=>x>=i.x-2&&x<=i.x+i.w+2&&y>=i.y-i.s&&y<=i.y+i.s*.3);if(!it)return toast('Click directly on existing text. Missed a line? Use Whiteout, then Add text.');
   const[fg,bg]=sample(it);Object.assign(fmt,{b:it.b,i:it.i,f:it.f});$('#col').value=fg;$('#sz').max=Math.max(48,Math.ceil(it.s));$('#sz').value=Math.round(it.s);syncFmt();
   ask(it.x,it.y-it.s,it.v,v=>{const s=SZ();add({t:'r',x:it.x-1,y:it.y-it.s*.95,w:it.w+2,h:it.s*1.25,c:bg,al:1},{t:'x',x:it.x,y:it.y,s,v,c:COL(),b:fmt.b,i:fmt.i,f:fmt.f})},it.s)}
  else if(tool=='img'){if(!pend)return toast('Choose an image or draw a signature first.');const s=SZ(),w=s*10,h=w*pend.height/pend.width;add({t:'i',im:pend,x:x-w/2,y:y-h/2,w,h})}};
@@ -116,11 +116,19 @@ $('#sp').onclick=async()=>{if(!doc)return;try{await bakeR();const d=await PDFDoc
  for(let i=0;i<d.getPageCount();i++){const n=await PDFDocument.create(),[p]=await n.copyPages(d,[i]);n.addPage(p);z.file(`${name}-page-${i+1}.pdf`,await n.save())}
  dlBlob(`${name}-split.zip`,await z.generateAsync({type:'blob'}),'application/zip');bump('d');toast('Split into one PDF per page')}catch(e){toast('Could not split this PDF.')}};
 let wk;
-$('#ocr').onclick=async()=>{if(!doc)return;const b=$('#ocr');b.disabled=true;
- try{toast('Reading the page. The first run downloads language data.');wk=wk||await createWorker('eng');const S=2,p=await doc.getPage(cur+1),v=p.getViewport({scale:S}),c=document.createElement('canvas');c.width=v.width;c.height=v.height;
+const ocrd=new Set();
+async function ocrPage(){if(!doc)return;const b=$('#ocr');b.disabled=true;
+ try{toast('Reading the text on this page. The first time takes a moment.');wk=wk||await createWorker('eng');const S=2,p=await doc.getPage(cur+1),v=p.getViewport({scale:S}),c=document.createElement('canvas');c.width=v.width;c.height=v.height;
   await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;const{data}=await wk.recognize(c);
-  tc[cur]=data.lines.filter(l=>l.text.trim()).map(l=>{const h=(l.bbox.y1-l.bbox.y0)/S;return{v:l.text.trim(),x:l.bbox.x0/S,y:l.bbox.y1/S-h*.2,w:(l.bbox.x1-l.bbox.x0)/S,s:h*.85,b:false,i:false,f:'sans'}});
-  setTool('edit');toast(`Found ${tc[cur].length} lines. Use Edit text and click a line to change it.`)}catch(e){toast('OCR failed. Check your internet connection and try again.')}b.disabled=false};
+  tc[cur]=data.lines.filter(l=>l.text.trim()&&l.confidence>30).map(l=>{const h=(l.bbox.y1-l.bbox.y0)/S;return{v:l.text.trim(),x:l.bbox.x0/S,y:l.bbox.y1/S-h*.2,w:(l.bbox.x1-l.bbox.x0)/S,s:h*.85,b:false,i:false,f:'sans'}});ocrd.add(cur);
+  setTool('edit');toast(tc[cur].length?`Found ${tc[cur].length} lines. Click a line with Edit text to change it.`:'No text found on this page.')}
+ catch(e){toast('Reading the text failed. Check your internet connection and try again.')}b.disabled=false}
+$('#ocr').onclick=ocrPage;
+async function img2pdf(f){const b=new Uint8Array(await f.arrayBuffer()),d=await PDFDocument.create();let im;
+ try{im=/png/i.test(f.type)?await d.embedPng(b):await d.embedJpg(b)}catch(e){const bm=await createImageBitmap(f),c=document.createElement('canvas');c.width=bm.width;c.height=bm.height;c.getContext('2d').drawImage(bm,0,0);im=await d.embedPng(await new Promise(r=>c.toBlob(r)).then(x=>x.arrayBuffer()))}
+ const k=Math.min(1,1400/Math.max(im.width,im.height)),pg=d.addPage([im.width*k,im.height*k]);pg.drawImage(im,{x:0,y:0,width:im.width*k,height:im.height*k});return d.save()}
+$('#ei').onclick=async()=>{if(!doc)return;try{if(ai)ai(1);await bakeR();const p=await doc.getPage(cur+1),v=p.getViewport({scale:2}),c=document.createElement('canvas');c.width=v.width;c.height=v.height;
+ await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;c.toBlob(b=>{dlBlob(`${name}-page-${cur+1}.png`,b,'image/png');bump('d');toast('Saved as PNG')})}catch(e){toast('Could not save as image.')}};
 $('#cp').onclick=async()=>{if(!doc)return;try{await bakeR();toast('Compressing…');const n=await PDFDocument.create();
  for(let i=1;i<=doc.numPages;i++){const p=await doc.getPage(i),v=p.getViewport({scale:1.5}),o=p.getViewport({scale:1}),c=document.createElement('canvas');c.width=v.width;c.height=v.height;
   await p.render({canvasContext:c.getContext('2d'),viewport:v}).promise;const j=await n.embedJpg(await new Promise(r=>c.toBlob(r,'image/jpeg',.6)).then(x=>x.arrayBuffer()));n.addPage([o.width,o.height]).drawImage(j,{x:0,y:0,width:o.width,height:o.height})}

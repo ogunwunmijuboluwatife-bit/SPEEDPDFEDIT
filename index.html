@@ -8,14 +8,14 @@
 <header>
   <div class="logo">SPEED<b>PDF</b>EDIT<small>EDIT. SAVE. DOWNLOAD.</small></div>
   <button class="b" id="hd">Dashboard</button>
-  <button class="b" id="up">Upload PDF</button>
+  <button class="b" id="up">Upload PDF or image</button>
   <button class="b red" id="dl" hidden>Save &amp; Download</button>
 </header>
 
 <section id="dash">
   <h1>Edit PDFs. <em>Fast.</em></h1>
   <div style="color:var(--mut)">Your documents open in your browser and are never uploaded to a server.</div>
-  <div class="drop" id="dz"><b>Drop a PDF here</b><p>or choose a file from your device</p><button class="b red" id="up2">Upload PDF</button></div>
+  <div class="drop" id="dz"><b>Drop a PDF or an image here</b><p>or choose a file from your device</p><button class="b red" id="up2">Upload PDF or image</button></div>
   <h2>Your activity</h2><div class="grid" id="st"></div>
   <h2>Recent documents</h2><ul id="rc"></ul>
   <h2>What you can do</h2>
@@ -26,7 +26,7 @@
     <div class="tile"><b>Highlight &amp; draw</b><br>Mark up pages</div>
     <div class="tile"><b>Images &amp; signature</b><br>Upload or draw</div>
     <div class="tile"><b>Page tools</b><br>Rotate, delete, reorder, add, merge, split, extract</div>
-    <div class="tile"><b>OCR</b><br>Make scanned pages editable</div>
+    <div class="tile"><b>Edit text in images</b><br>Upload a PNG or JPG, click a line, retype it</div>
     <div class="tile"><b>Compress &amp; protect</b><br>Shrink files, add a password</div>
   </div>
 </section>
@@ -38,12 +38,12 @@
     <i></i><button class="b" id="un">Undo</button><button class="b" id="re">Redo</button>
     <i></i><button class="b" id="zo">−</button><button class="b" id="zi">+</button>
     <i></i><button class="b" id="pv">‹</button><span id="pg"></span><button class="b" id="nx">›</button>
-    <i></i><button class="b" id="ro">Rotate</button><button class="b" id="de">Delete</button><button class="b" id="mu">Move ▲</button><button class="b" id="md">Move ▼</button><button class="b" id="ab">Add blank</button><button class="b" id="mg">Merge PDF</button><button class="b" id="ex">Extract pages</button><button class="b" id="sp">Split (ZIP)</button><button class="b" id="ocr">OCR page</button><button class="b" id="cp">Compress</button><button class="b" id="pw">Protect</button>
+    <i></i><button class="b" id="ro">Rotate</button><button class="b" id="de">Delete</button><button class="b" id="mu">Move ▲</button><button class="b" id="md">Move ▼</button><button class="b" id="ab">Add blank</button><button class="b" id="mg">Merge PDF</button><button class="b" id="ex">Extract pages</button><button class="b" id="sp">Split (ZIP)</button><button class="b" id="ocr">OCR page</button><button class="b" id="cp">Compress</button><button class="b" id="pw">Protect</button><button class="b" id="ei">Save as image</button>
   </div>
   <div id="main"><aside id="side"></aside><div id="stage"><div id="wrap"><canvas id="pc"></canvas><canvas id="oc"></canvas></div></div></div>
 </section>
 
-<input type="file" id="f" accept="application/pdf" hidden>
+<input type="file" id="f" accept="application/pdf,image/*" hidden>
 <input type="file" id="fm" accept="application/pdf" hidden>
 <input type="file" id="fi" accept="image/*" hidden>
 <div id="sg" hidden><div><b>Draw your signature</b><canvas id="sc" width="360" height="140"></canvas><button class="b" id="sx">Clear</button> <button class="b red" id="so">Use signature</button> <button class="b" id="sn">Cancel</button></div></div>
